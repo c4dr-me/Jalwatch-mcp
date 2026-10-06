@@ -5,15 +5,19 @@
 One Uvicorn process serves FastAPI routes and a mounted MCP v2 Streamable HTTP
 server at `/mcp/`. FastAPI's top-level lifespan explicitly enters
 `mcp.session_manager.run()`; mounted sub-app lifespans do not run themselves.
-The agent lazily opens an authenticated HTTP MCP client after startup, calls
+The agent lazily opens an HTTP MCP client after startup, calls
 `tools/list`, binds discovered schemas, and reuses the connection. There is no
 HTTP self-call while startup is blocked and no second server process.
 
-`/health` is public and lightweight. `/webhook`, `/threads/*`,
-`/operations/storage`, and `/mcp/*` require `Authorization: Bearer <key>`;
-comparison is constant-time. Deployed mode fails startup without
-`JALWATCH_API_KEY`. This key is distinct from Groq credentials and the Task 6
-ephemeral HMAC approval secret. The SDK's DNS-rebinding protection remains on:
+`/health` is public and lightweight. Authentication defaults to enabled:
+`/webhook`, `/threads/*`, `/operations/storage`, and `/mcp/*` then require
+`Authorization: Bearer <key>`; comparison is constant-time. Deployed mode fails
+startup without `JALWATCH_API_KEY` while authentication is enabled. The
+assignment-demo setting `JALWATCH_AUTH_REQUIRED=false` opens those routes
+without a bearer token; the Render Blueprint uses it. This also exposes
+thread status and approval/resume routes publicly, so use it only for a demo.
+The API key is distinct from Groq credentials and the Task 6 ephemeral HMAC
+approval secret. The SDK's DNS-rebinding protection remains on:
 localhost hosts and the exact `JALWATCH_PUBLIC_HOST` or Render-provided
 `RENDER_EXTERNAL_HOSTNAME` are allowed. Browser CORS is not enabled.
 
@@ -35,20 +39,22 @@ A pending review returns HTTP 202. Resume with
 selects its SQLite checkpoint. API 400/502 style ToolMessages are graph data,
 not automatic web HTTP status codes.
 
-Use the official MCP client against `http://127.0.0.1:8000/mcp/` with the same
-bearer token. `tools/list` and read `tools/call` are safe; direct
+Use the official MCP client against `http://127.0.0.1:8000/mcp/`, passing the
+bearer token only when authentication is enabled. `tools/list` and read `tools/call` are safe; direct
 `create_escalation` stays blocked. The stdio command
 `uv run python -m jalwatch.mcp.smoke` remains the Task 4 local proof.
 
 ## Render
 
 Connect this Git repository as a Render Blueprint using `render.yaml`. Enter
-`GROQ_API_KEY`, `JALWATCH_LLM_MODEL`, and `JALWATCH_API_KEY` when prompted;
+`GROQ_API_KEY` and `JALWATCH_LLM_MODEL` when prompted. Set
+`JALWATCH_API_KEY` only when `JALWATCH_AUTH_REQUIRED=true`;
 never put values in Git. Render sets `PORT` and `RENDER_EXTERNAL_HOSTNAME`.
-After deployment verify HTTPS `/health`, missing/wrong/correct bearer behavior,
+After deployment verify HTTPS `/health`, the configured auth mode,
 `/webhook`, MCP initialize/list/read, direct write rejection, and absence of
-421 host errors. No public deployment URL is documented until these tests
-actually run.
+421 host errors. The deployed MCP endpoint is
+`https://jalwatch-mcp.onrender.com/mcp/`; repeat the auth-mode checks after
+changing Render environment settings.
 
 Free Render storage is ephemeral. SQLite works while the instance lives but
 cannot guarantee restart recovery after spin-down/redeploy. A paid disk mounted

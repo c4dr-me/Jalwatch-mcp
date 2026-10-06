@@ -34,12 +34,17 @@ class ResumeRequest(ApprovalDecision):
 class BearerBoundary:
     """Pure ASGI middleware also protects the mounted MCP transport."""
 
-    def __init__(self, app: Any, api_key: str) -> None:
+    def __init__(self, app: Any, api_key: str, auth_required: bool) -> None:
         self.app = app
         self.api_key = api_key
+        self.auth_required = auth_required
 
     async def __call__(self, scope: dict[str, Any], receive: Any, send: Any) -> None:
-        if scope["type"] != "http" or scope["path"] == "/health":
+        if (
+            scope["type"] != "http"
+            or scope["path"] == "/health"
+            or not self.auth_required
+        ):
             await self.app(scope, receive, send)
             return
         headers = dict(scope.get("headers", ()))
@@ -70,15 +75,30 @@ def allowed_hosts(public_host: str | None) -> list[str]:
     return hosts
 
 
+def auth_required_from_env() -> bool:
+    value = os.environ.get("JALWATCH_AUTH_REQUIRED", "true").strip().lower()
+    if value not in {"true", "false"}:
+        raise ValueError("JALWATCH_AUTH_REQUIRED must be true or false")
+    return value == "true"
+
+
 def create_app(
     *,
     runtime: AgentService | None = None,
     tools: SachetTools | None = None,
     api_key: str | None = None,
+    auth_required: bool | None = None,
     public_host: str | None = None,
 ) -> FastAPI:
     key = api_key if api_key is not None else os.environ.get("JALWATCH_API_KEY", "")
-    if not key and os.environ.get("JALWATCH_ENVIRONMENT") == "deployed":
+    require_auth = (
+        auth_required if auth_required is not None else auth_required_from_env()
+    )
+    if (
+        require_auth
+        and not key
+        and os.environ.get("JALWATCH_ENVIRONMENT") == "deployed"
+    ):
         raise ValueError("JALWATCH_API_KEY is required in deployed mode")
     host = (
         public_host
@@ -112,7 +132,7 @@ def create_app(
                     f"http://127.0.0.1:{os.environ.get('PORT', '8000')}/mcp/",
                 )
                 or f"http://127.0.0.1:{os.environ.get('PORT', '8000')}/mcp/",
-                api_key=key,
+                api_key=key if require_auth else "",
                 approval_secret=secret,
                 mcp_transport=os.environ.get("JALWATCH_MCP_TRANSPORT", "http"),
             )
@@ -125,7 +145,7 @@ def create_app(
                     await source.aclose()
 
     app = FastAPI(title="JalWatch India", version="0.1.0", lifespan=lifespan)
-    app.add_middleware(BearerBoundary, api_key=key)
+    app.add_middleware(BearerBoundary, api_key=key, auth_required=require_auth)
 
     @app.exception_handler(HTTPException)
     async def http_error(_request: Request, exc: HTTPException) -> JSONResponse:

@@ -178,6 +178,7 @@ def test_mcp_http_auth_blocks_sdk_initialize() -> None:
 def test_public_host_allowlist_and_deployed_key(monkeypatch: Any) -> None:
     monkeypatch.setenv("JALWATCH_ENVIRONMENT", "deployed")
     monkeypatch.delenv("JALWATCH_API_KEY", raising=False)
+    monkeypatch.setenv("JALWATCH_AUTH_REQUIRED", "true")
     try:
         create_app(runtime=FakeRuntime(), tools=FakeTools())
         raise AssertionError("Missing deployed API key was accepted")
@@ -223,3 +224,69 @@ def test_public_host_allowlist_and_deployed_key(monkeypatch: Any) -> None:
             assert response.status_code == 421
 
     asyncio.run(check())
+
+
+def test_no_auth_demo_allows_api_and_mcp_but_not_direct_write(
+    monkeypatch: Any,
+) -> None:
+    monkeypatch.setenv("JALWATCH_ENVIRONMENT", "deployed")
+    monkeypatch.setenv("JALWATCH_AUTH_REQUIRED", "false")
+    monkeypatch.delenv("JALWATCH_API_KEY", raising=False)
+
+    async def check() -> None:
+        runtime = FakeRuntime()
+        app = create_app(runtime=runtime, tools=FakeTools())
+        async with (
+            app.router.lifespan_context(app),
+            httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://localhost"
+            ) as client,
+        ):
+            response = await client.post("/webhook", json={"message": "check"})
+            assert response.status_code == 200
+            assert (await client.get("/threads/other")).status_code == 404
+            pending = await client.post(
+                "/webhook", json={"thread_id": "demo", "message": "approve?"}
+            )
+            assert pending.status_code == 202
+            rejected = await client.post(
+                "/threads/demo/resume", json={"decision": "reject"}
+            )
+            assert rejected.status_code == 200
+
+            http_client = httpx2.AsyncClient(
+                transport=httpx2.ASGITransport(app=app), timeout=30
+            )
+            async with JalWatchMCPClient.http(
+                "http://localhost/mcp/",
+                bearer_token=None,
+                approval_secret=b"x" * 32,
+                http_client=http_client,
+            ) as mcp:
+                assert "list_active_cwc_alerts" in {tool.name for tool in mcp.tools}
+                read = await mcp.call_tool(
+                    "list_active_cwc_alerts", {"region": "Bihar"}
+                )
+                assert not read.is_error
+                blocked = await mcp.call_tool(
+                    "create_escalation",
+                    {
+                        "alert_refs": ["REF-1"],
+                        "region": "Bihar",
+                        "rationale": "Review needed",
+                        "severity": "elevated",
+                    },
+                )
+                assert blocked.is_error
+                assert "APPROVAL_REQUIRED" in str(blocked.content)
+
+    asyncio.run(check())
+
+
+def test_auth_setting_rejects_ambiguous_values(monkeypatch: Any) -> None:
+    monkeypatch.setenv("JALWATCH_AUTH_REQUIRED", "0")
+    try:
+        create_app(runtime=FakeRuntime(), tools=FakeTools())
+        raise AssertionError("Ambiguous auth setting was accepted")
+    except ValueError as exc:
+        assert "JALWATCH_AUTH_REQUIRED" in str(exc)

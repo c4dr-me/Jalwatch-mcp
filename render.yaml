@@ -7,6 +7,8 @@ services:
     envVars:
       - key: JALWATCH_ENVIRONMENT
         value: deployed
+      - key: JALWATCH_AUTH_REQUIRED
+        value: "false"
       - key: JALWATCH_MCP_TRANSPORT
         value: http
       - key: JALWATCH_SUMMARY_BACKEND
@@ -14,6 +16,4 @@ services:
       - key: GROQ_API_KEY
         sync: false
       - key: JALWATCH_LLM_MODEL
-        sync: false
-      - key: JALWATCH_API_KEY
         sync: false

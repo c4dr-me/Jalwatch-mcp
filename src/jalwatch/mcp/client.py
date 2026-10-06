@@ -127,16 +127,17 @@ class JalWatchMCPClient:
         cls,
         url: str,
         *,
-        bearer_token: str,
+        bearer_token: str | None,
         approval_secret: bytes,
         telemetry: Telemetry | None = None,
         http_client: httpx2.AsyncClient | None = None,
     ) -> Self:
-        """Create an authenticated Streamable HTTP session; discovery stays dynamic."""
-        if not url.startswith(("http://", "https://")) or not bearer_token:
-            raise ValueError("HTTP MCP needs a URL and bearer token")
+        """Create a Streamable HTTP session; discovery stays dynamic."""
+        if not url.startswith(("http://", "https://")):
+            raise ValueError("HTTP MCP needs a URL")
         http_client = http_client or httpx2.AsyncClient(
-            headers={"Authorization": f"Bearer {bearer_token}"}, timeout=30.0
+            headers={"Authorization": f"Bearer {bearer_token}"} if bearer_token else {},
+            timeout=30.0,
         )
         return cls(
             streamable_http_client(url, http_client=http_client),

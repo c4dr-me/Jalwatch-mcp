@@ -7,12 +7,13 @@ from secrets import token_bytes
 
 import httpx
 
+from jalwatch.api.app import auth_required_from_env
 from jalwatch.mcp.client import JalWatchMCPClient
 
 
 async def check(url: str, token: str, *, live_read: bool) -> None:
-    if not token:
-        raise ValueError("Set JALWATCH_API_KEY")
+    if auth_required_from_env() and not token:
+        raise ValueError("Set JALWATCH_API_KEY when authentication is required")
     root = url.rstrip("/")
     async with httpx.AsyncClient(timeout=15) as http:
         health = await http.get(f"{root}/health")
