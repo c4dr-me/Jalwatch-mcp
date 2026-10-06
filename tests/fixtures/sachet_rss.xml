@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>All India: CAP Disaster Alert Feeds</title>
+<item><title>River Ganga at Sahibganj in severe flood situation.</title><description></description><category>Met</category><link>https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=1001</link><author>controlroom@ndma.gov.in (CWC)</author><guid>1001</guid><pubDate>Tue, 06 Oct 2026 07:55:02 GMT</pubDate></item>
+<item><title>River Kosi at Bihar.</title><category>Met</category><link>https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=1002</link><author>controlroom@ndma.gov.in (CWC)</author><guid>1002</guid><pubDate>Tue, 06 Oct 2026 08:30:00 GMT</pubDate></item>
+<item><title>Thunderstorm in Goa.</title><category>Met</category><link>https://sachet.ndma.gov.in/cap_public_website/FetchXMLFile?identifier=1003</link><author>controlroom@ndma.gov.in (IMD Goa)</author><guid>1003</guid><pubDate>Tue, 06 Oct 2026 08:45:00 GMT</pubDate></item>
+</channel></rss>

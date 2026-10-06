@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: jalwatch-india
+    runtime: docker
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: JALWATCH_ENVIRONMENT
+        value: deployed
+      - key: JALWATCH_MCP_TRANSPORT
+        value: http
+      - key: JALWATCH_SUMMARY_BACKEND
+        value: groq
+      - key: GROQ_API_KEY
+        sync: false
+      - key: JALWATCH_LLM_MODEL
+        sync: false
+      - key: JALWATCH_API_KEY
+        sync: false

@@ -1,0 +1,43 @@
+Tasks to Build  Agents
+Note – Build this in your personal PC. You can take any problem statement and implement the below tasks
+
+Complete these tasks in order. These will cover every architectural concept required in production.
+Task 1: Define the State (State Management)
+An agent is a state machine. Before writing any LLM code, define the memory object that will pass between nodes.
+Task 2: Build the Reasoning Node (The Engine)
+•	The core node that decides what to do next. It does not execute actions; it only outputs JSON-RPC tool requests or final text.
+•	Bind your Groq/Gemini LLM to the state. Give it a System Prompt with clear instructions and determine which tool to use.
+Task 3: Tool Provisioning & Execution (JSON-RPC)
+•	Tools are just Python functions wrapped in JSON schemas.
+•	Write Python functions for your tasks
+•	Bind these tools to the LLM. When the LLM outputs the request for tool call route that payload to your Python function, and append the result back to the messages state. 
+Task 4: Implement MCP (Model Context Protocol)
+•	Instead of hardcoding tools into your agent, use MCP to dynamically discover them. This decouples the agent from external systems.
+•	Spin up a local standard MCP Server. In your agent code, use an MCP Client to send a tools/list request on startup. Dynamically pass the returned schemas to your LLM. When the LLM calls an MCP tool, route the tools/call payload over stdio or HTTP to the MCP Server. 
+Task 5: Add Lifecycle Hooks (Pre & Post)
+•	Deterministic guardrails for non-deterministic models.
+•	Implement a Pre-tool Hook. If it fails, return a simulated 400 error back to the LLM so it can self-correct. Implement a Post-tool Hook for your tasks
+
+
+Task 6: Human-in-the-Loop (HITL) Routing
+•	High-stakes actions require manual approval. The state machine must pause execution and persist memory.
+•	Create a conditional edge in your graph. Configure LangGraph to pause execution at this node. Build a simple terminal prompt (or API endpoint) waiting for you to type "Approve" or "Reject". Once approved, resume the graph. 
+Task 7: Context Compaction & Checkpointing
+•	If the agent takes 15 steps to solve a problem, the token limit will max out and crash.
+•	Implement a summarize node. If len(messages) > 10, trigger an offline LLM call to summarize the first 8 messages into a single paragraph. Delete the old messages from the state and replace them with the summary. Use checkpoint saver to persist this state to disk so the agent can survive server reboots. 
+Task 8: Continuous Telemetry (Observability)
+•	You cannot fix an agent if you cannot see its thought process.
+•	Integrate the Langfuse Python SDK. Wrap your LangGraph execution loop in a trace. Trigger your tasks, and inspect the trace. You should see the exact latency, token count, and JSON-RPC payloads for every single step of the loop.
+Task 9: Evaluation & Deployment
+•	Moving from local development to production. 
+1.	Eval: Write an LLM-as-a-judge script. Feed 10 historical traces to an LLM and prompt it to grade the agent's "Error Recovery" on a scale of 1-5.
+2.	Deploy: Wrap your LangGraph agent in a FastAPI endpoint (e.g., POST /webhook). Write a Dockerfile and deploy the container to Render or Hugging Face Spaces. Test your agent in this host
+
+Free resources you can refer to:
+•	LLM Inference – Groq API/ Gemini API
+•	Orchestration – LangGraph
+•	Vector DB – Pinecone /Qdrant serverless 
+•	Observability – Langfuse (This is a free tier tracing to log every LLM call, latency and tool execution)
+•	Deployment – Hugging Face Spaces / Render – Host your Python agent as a webhook or API endpoint
+
+Note – You can use any free resources apart from these.
